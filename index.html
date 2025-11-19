@@ -299,17 +299,17 @@
         let currentBingoResult = null; 
         let currentLevel = 'novell'; 
         
-        // --- Variables per al compte enrere ---
+        // --- Variables per al compte enrere i control ---
         let countdownInterval = null;
-        let rapidColorInterval = null; // Interval per al canvi ràpid de color
-        const DEFAULT_BODY_BG = '#111827'; // gray-900
-        const DEFAULT_CARD_BG = '#1f2937'; // gray-800
-        const DEFAULT_PLAYER_BG = '#374151'; // gray-700
+        let rapidColorInterval = null;
+        let iframeFocusInterval = null; // NOU: Per detectar clic a l'iframe
+        const DEFAULT_BODY_BG = '#111827'; 
+        const DEFAULT_CARD_BG = '#1f2937'; 
+        const DEFAULT_PLAYER_BG = '#374151'; 
 
         // --- AUDIO CONTEXT ---
         let audioCtx = null;
 
-        /** Inicialitza o reprèn el context d'àudio */
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -319,21 +319,18 @@
             }
         }
 
-        /** Genera un beep */
         function playBeep(duration, frequency, type = 'square') {
             try {
                 initAudio();
                 const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
                 
-                oscillator.type = type; // 'square' sona més fort
+                oscillator.type = type;
                 oscillator.frequency.value = frequency;
                 
-                // Connectar: Oscillator -> Gain -> Destination
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 
-                // Volum més alt per assegurar que s'escolta
                 gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
@@ -344,8 +341,6 @@
             }
         }
 
-
-        /** Funció per netejar el nom de la categoria */
         function getCleanCategoryName(filename) {
             let baseName = filename.split('.').slice(0, -1).join('.');
             while (baseName.startsWith('.') || baseName.startsWith('_')) {
@@ -354,11 +349,9 @@
             return baseName || filename;
         }
 
-        /** Parsejar contingut CSV */
         function parseCsvContent(fileContent, categoryName) {
             const tracks = [];
             const lines = fileContent.trim().split('\n');
-            
             if (lines.length <= 1) return tracks;
 
             const delimiter = ';'; 
@@ -381,32 +374,22 @@
                     const finalCategory = categoryName;
 
                     if (uri && title && finalCategory) {
-                        tracks.push({
-                            uri: uri,
-                            title: title,
-                            artist: artist,
-                            year: year,
-                            category: finalCategory,
-                        });
+                        tracks.push({ uri, title, artist, year, category: finalCategory });
                     }
                 }
             }
             return tracks;
         }
 
-        /** Missatge inicial del reproductor */
         function showInitialPlayerMessage() {
             let message = '';
             if (!spotifyAccountType) {
                 message = `✨ Tria el tipus de compte Spotify 🎤`;
             } else {
-                message = `✨ Tria el nivell, les categories 🎤<br>
-                            i fes "Nou Hit" per començar`;
+                message = `✨ Tria el nivell, les categories 🎤<br>i fes "Nou Hit" per començar`;
             }
 
-            playerContainer.innerHTML = `<p class="text-white font-bold text-center p-4 text-lg">
-                ${message}
-            </p>`;
+            playerContainer.innerHTML = `<p class="text-white font-bold text-center p-4 text-lg">${message}</p>`;
         }
 
         function hideDynamicContent() {
@@ -510,7 +493,6 @@
             }
             
             fileList.innerHTML = ''; 
-
             if (allTracksFromFile.length > 0) {
                 renderSetupSection(); 
             }
@@ -561,15 +543,9 @@
 
                 try {
                     const response = await fetch(url);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Error HTTP carregant ${filename}: ${response.status}`);
-                    }
-                    
+                    if (!response.ok) throw new Error(`Error HTTP`);
                     const fileContent = await response.text();
-                    
                     const newTracks = parseCsvContent(fileContent, categoryName);
-                    
                     if (newTracks.length > 0) {
                         allTracksFromFile.push(...newTracks);
                         loadedFileMetadata.push({ 
@@ -577,15 +553,12 @@
                             cleanName: categoryName,
                             isPriority: isPriority 
                         }); 
-                        
                         totalTracksCountByCategory[categoryName] = newTracks.length;
-                        
                         if (!selectedCategoriesOnLoad.includes(categoryName)) {
                             selectedCategoriesOnLoad.push(categoryName);
                         }
                         successfullyLoadedCount++;
                     }
-
                 } catch (error) {
                     console.error(`Error processant ${filename}:`, error);
                 }
@@ -632,12 +605,9 @@
 
         function renderSetupSection() {
             categoriesLocked = false;
-            
             nouHitButton.classList.remove('hidden');
             mostrarInfoButton.classList.add('hidden');
-            
             showInitialPlayerMessage();
-            
             hideDynamicContent(); 
             
             setTimeout(() => {
@@ -661,7 +631,6 @@
                             </div>
                         </div>
                     `;
-                    
                     nouHitButton.disabled = true;
 
                     document.querySelectorAll('.account-choice').forEach(button => {
@@ -687,7 +656,6 @@
                 });
 
                 const allCategories = Array.from(categoryInfoMap.values());
-                
                 allCategories.sort((a, b) => {
                     if (a.isPriority && !b.isPriority) return -1;
                     if (!a.isPriority && b.isPriority) return 1;
@@ -713,17 +681,13 @@
                     `;
                 });
 
-                // Estils dels botons: VERD (Hitster) per actiu, GRIS per inactiu
                 const activeClassesStr = 'bg-green-500 text-gray-900 shadow-md';
                 const inactiveClassesStr = 'bg-gray-700 text-gray-300 hover:bg-gray-600';
-
                 const novellClass = currentLevel === 'novell' ? activeClassesStr : inactiveClassesStr;
                 const expertClass = currentLevel === 'expert' ? activeClassesStr : inactiveClassesStr;
 
                 dynamicContentContainer.innerHTML = `
                     <div class="py-4 w-full">
-                        
-                        <!-- SELECCIÓ DE NIVELL -->
                         <p class="text-sm text-gray-400 text-center mb-2">Tria el nivell</p>
                         <div class="flex justify-center space-x-4 mb-6 px-4">
                             <button id="level-novell-btn" class="flex-1 py-2 px-4 rounded-lg font-bold transition duration-200 ${novellClass}">
@@ -734,7 +698,6 @@
                             </button>
                         </div>
                         <hr class="border-gray-700 mb-6 mx-4" />
-
                         <p class="text-sm text-gray-400 text-center mb-4">Tria una o més categories</p>
                         <div class="flex justify-center space-x-3 mb-4 px-2 sm:px-4">
                             <button id="select-all-btn" class="text-xs font-semibold text-white/80 hover:text-white transition duration-150 p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700 flex-1 shadow-inner">
@@ -752,18 +715,13 @@
                 
                 dynamicContentContainer.classList.add('opacity-100', 'scale-100');
 
-                // Helper per actualitzar estils sense recarregar tota la secció
                 const updateLevelButtons = () => {
                      const novellBtn = document.getElementById('level-novell-btn');
                      const expertBtn = document.getElementById('level-expert-btn');
-                     
                      const activeClasses = ['bg-green-500', 'text-gray-900', 'shadow-md'];
                      const inactiveClasses = ['bg-gray-700', 'text-gray-300', 'hover:bg-gray-600'];
-
-                     // Neteja classes
                      novellBtn.classList.remove(...activeClasses, ...inactiveClasses);
                      expertBtn.classList.remove(...activeClasses, ...inactiveClasses);
-
                      if (currentLevel === 'novell') {
                          novellBtn.classList.add(...activeClasses);
                          expertBtn.classList.add(...inactiveClasses);
@@ -773,7 +731,6 @@
                      }
                 };
 
-                // Listeners per al nivell (SENSE recarregar tota la secció)
                 document.getElementById('level-novell-btn').addEventListener('click', () => {
                     currentLevel = 'novell';
                     updateLevelButtons();
@@ -783,11 +740,9 @@
                     updateLevelButtons();
                 });
 
-
                 const labels = document.querySelectorAll('.category-label');
                 const selectAllBtn = document.getElementById('select-all-btn');
                 const deselectAllBtn = document.getElementById('deselect-all-btn');
-
                 if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
                 if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
 
@@ -798,35 +753,45 @@
                         updateButtonState();
                     });
                 });
-
                 updateButtonState(); 
             }, 300); 
         }
         
-        /** Estableix el color de fons globalment */
         function setGlobalColor(color) {
-            // Body
             document.body.style.backgroundColor = color;
-            // Main Card
             document.getElementById('main-card').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_CARD_BG : color;
-            // Player Container
             document.getElementById('spotify-player-container').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_PLAYER_BG : color;
+        }
+
+        // --- MODIFICAT: Aturar música recarregant l'iframe (sense eliminar-lo) ---
+        function stopMusic() {
+            const iframe = playerContainer.querySelector('iframe');
+            if (iframe) {
+                // Recarrega l'iframe per aturar la reproducció (actua com a pausa/reset)
+                // Assegurem que l'autoplay estigui desactivat en recarregar
+                const currentSrc = iframe.src;
+                // Simplement reassignant src es recarrega i s'atura l'àudio
+                iframe.src = currentSrc;
+            }
         }
 
         function stopCountdown() {
             if (countdownInterval) clearInterval(countdownInterval);
             if (rapidColorInterval) clearInterval(rapidColorInterval);
+            if (iframeFocusInterval) clearInterval(iframeFocusInterval);
             
             countdownInterval = null;
             rapidColorInterval = null;
+            iframeFocusInterval = null;
             
-            // Restaurar colors originals
             setGlobalColor(DEFAULT_BODY_BG);
         }
 
         function startCountdown() {
             // Assegurar neteja prèvia
-            stopCountdown();
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (rapidColorInterval) clearInterval(rapidColorInterval);
+            
             initAudio();
 
             let timeLeft = 25;
@@ -839,14 +804,11 @@
 
                 if (timeLeft <= 5 && timeLeft > 0) {
                     // INICI DE LA SEQÜÈNCIA RÀPIDA (Últims 5s)
-                    playBeep(0.2, 880, 'square'); // Beep audible a cada segon
+                    playBeep(0.2, 880, 'square'); 
                     
-                    // Si no hi ha interval ràpid actiu, el creem
                     if (!rapidColorInterval) {
                         let colorIndex = 0;
                         const discoColors = ['#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#f472b6']; // Groc, Verd, Blau, Lila, Rosa
-                        
-                        // Interval ràpid: Canvia color cada 200ms (5 vegades per segon)
                         rapidColorInterval = setInterval(() => {
                             setGlobalColor(discoColors[colorIndex]);
                             colorIndex = (colorIndex + 1) % discoColors.length;
@@ -854,11 +816,30 @@
                     }
                 } else if (timeLeft === 0) {
                     // FINAL
-                    playBeep(1.0, 440, 'square'); // Beep llarg final
-                    stopCountdown(); // Atura tot i restaura colors
+                    playBeep(1.0, 440, 'square'); 
+                    stopMusic(); // ATURAR MÚSICA (ARA RECARREGA)
+                    stopCountdown(); 
                 }
-                
             }, 1000);
+        }
+
+        // --- Monitor per detectar clic a l'iframe ---
+        function startIframeFocusMonitor() {
+            if (iframeFocusInterval) clearInterval(iframeFocusInterval);
+            // Treure focus actual per assegurar que detectem el canvi
+            if (document.activeElement) document.activeElement.blur();
+
+            iframeFocusInterval = setInterval(() => {
+                // Detectar si l'element actiu és l'iframe (indica clic de l'usuari)
+                if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+                    clearInterval(iframeFocusInterval);
+                    iframeFocusInterval = null;
+                    
+                    // Usuari ha fet play -> Girar Ruleta
+                    dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
+                    renderAndSpinWheel();
+                }
+            }, 200);
         }
 
         function resetGame() {
@@ -880,7 +861,8 @@
             currentTrack = availableTracks[randomIndex];
             const trackId = currentTrack.uri.split(':').pop();
             const startSeconds = spotifyAccountType === 'free' ? 0 : 60; 
-            const urlToLoad = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&autoplay=1&t=${startSeconds}`;
+            // NOU: autoplay=0
+            const urlToLoad = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&autoplay=0&t=${startSeconds}`;
             
             const iframe = document.createElement('iframe');
             iframe.style.borderRadius = '12px';
@@ -895,7 +877,6 @@
             const mask = document.createElement('div');
             mask.id = 'player-mask';
             mask.className = 'absolute inset-0 bg-gray-800 rounded-lg transition-opacity duration-500';
-            
             const maskPosition = '93% 80%';
             mask.style.webkitMaskImage = `radial-gradient(circle at ${maskPosition}, transparent 19px, black 19px)`;
             mask.style.maskImage = `radial-gradient(circle at ${maskPosition}, transparent 19px, black 19px)`;
@@ -908,6 +889,9 @@
             iframe.onload = () => {
                 nouHitButton.classList.add('hidden');
                 mostrarInfoButton.classList.remove('hidden');
+                
+                // NOU: Iniciar monitorització del clic
+                startIframeFocusMonitor();
             };
             
             iframe.onerror = () => {
@@ -922,51 +906,34 @@
             availableTracks.splice(randomIndex, 1);
         }
 
-        /** Lògica per renderitzar i animar la ruleta */
         function renderAndSpinWheel() {
-            // 1. Seleccionar el llistat de tasques segons el nivell
             const tasksToUse = currentLevel === 'expert' ? bingoTasksExpert : bingoTasksNovell;
-
-            // 2. Escollir una tasca de bingo aleatòria (0 a 4)
             const taskIndex = Math.floor(Math.random() * tasksToUse.length);
             currentBingoResult = tasksToUse[taskIndex];
 
-            // 3. Renderitzar l'estructura (amb espai reservat per al text)
             dynamicContentContainer.innerHTML = `
                 <div class="py-4 w-full flex flex-col items-center">
-                    <!-- Contenidor per al text del resultat (Inicialment invisible) -->
-                    <div id="bingo-result-text" class="h-10 mb-4 flex items-center justify-center transition-all duration-500 opacity-0 transform scale-95">
-                        <!-- El text s'injectarà aquí després -->
-                    </div>
+                    <div id="bingo-result-text" class="h-10 mb-4 flex items-center justify-center transition-all duration-500 opacity-0 transform scale-95"></div>
 
-                    <!-- CONTENIDOR RULETA + COMPTADOR -->
                     <div class="roulette-container mb-4">
                         <div class="roulette-arrow"></div>
                         <div class="roulette-wheel" id="wheel"></div>
                         <div class="roulette-center"></div>
-                        
-                        <!-- COMPTADOR SUPERPOSAT AL CENTRE (Absolute) -->
-                        <div id="countdown-display" class="text-7xl font-black text-white/20 transition-all duration-300">
-                            25
-                        </div>
+                        <div id="countdown-display" class="text-7xl font-black text-white/20 transition-all duration-300">25</div>
                     </div>
                 </div>
             `;
 
-            // 4. Calcular la rotació
             const segmentCenter = (taskIndex * 72) + 36;
-            const targetRotation = (360 - segmentCenter) + (360 * 5); // +5 voltes completes
+            const targetRotation = (360 - segmentCenter) + (360 * 5); 
 
-            // 5. Aplicar rotació i mostrar text amb retard
             setTimeout(() => {
                 const wheel = document.getElementById('wheel');
                 if (wheel) {
                     wheel.style.transform = `rotate(${targetRotation}deg)`;
                 }
                 
-                // Després de 3 segons (quan s'atura la ruleta)
                 setTimeout(() => {
-                    // 1. Mostrar text resultat
                     const resultTextDiv = document.getElementById('bingo-result-text');
                     if (resultTextDiv) {
                         resultTextDiv.innerHTML = `
@@ -978,45 +945,35 @@
                         resultTextDiv.classList.add('opacity-100', 'scale-100');
                     }
                     
-                    // 2. Activar visibilitat completa del comptador
                     const countdownDisplay = document.getElementById('countdown-display');
                     if (countdownDisplay) {
                         countdownDisplay.classList.remove('text-white/20');
                         countdownDisplay.classList.add('text-white');
-                        // Afegim una ombra extra per llegibilitat quan estigui superposat
                         countdownDisplay.style.textShadow = "0 0 10px rgba(0,0,0,0.9)";
                     }
                     
-                    // 3. INICIAR EL COMPTE ENRERE
                     startCountdown();
 
                 }, 3000); 
-
             }, 100);
         }
 
-        /** Gestiona el clic a "Nou Hit" */
         function handleNouHitClick() {
             if (nouHitButton.disabled) return;
-            
-            // Iniciem context àudio en interacció usuari per permisos navegador
             initAudio(); 
 
             if (!categoriesLocked) {
                 selectedCategoriesOnLoad = Array.from(document.querySelectorAll('input[name="category"]:checked')).map(input => input.value);
-                
                 if (selectedCategoriesOnLoad.length === 0) {
                     showButtonError('Selecciona una categoria');
                     return;
                 }
-                
                 if (!spotifyAccountType) {
                     showButtonError('Tria el tipus de compte Spotify');
                     return;
                 }
 
                 availableTracks = allTracksFromFile.filter(track => selectedCategoriesOnLoad.includes(track.category));
-                
                 if (availableTracks.length === 0) {
                     showButtonError('No hi ha cançons en aquestes categories.');
                     return;
@@ -1028,14 +985,15 @@
                 nouHitButton.disabled = true; 
                 
                 setTimeout(() => {
-                    // Mostra i gira la ruleta mentre la música comença
                     dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
-                    renderAndSpinWheel();
+                    // NOU: Esborrem contingut i mostrem instruccions
+                    dynamicContentContainer.innerHTML = `<div class="text-center animate-pulse mt-4"><p class="text-xl font-bold text-green-400">Fes clic al Play (▶) per girar la ruleta!</p></div>`;
+                    
+                    // NOU: Només carreguem el player. La ruleta espera al focus.
                     loadTrackAndPlayer();
                 }, 300);
 
             } else {
-                // Si hi ha compte enrere actiu, l'aturem per si de cas
                 stopCountdown();
 
                 if (availableTracks.length === 0) {
@@ -1055,15 +1013,14 @@
                 
                 setTimeout(() => {
                     dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
-                    renderAndSpinWheel();
+                    dynamicContentContainer.innerHTML = `<div class="text-center animate-pulse mt-4"><p class="text-xl font-bold text-green-400">Fes clic al Play (▶) per girar la ruleta!</p></div>`;
                     loadTrackAndPlayer();
                 }, 300);
             }
         }
         
-        /** Mostra la informació de la cançó actual i el resultat del bingo */
         function handleMostrarInfoClick() {
-            stopCountdown(); // ATURAR EL COMPTE ENRERE
+            stopCountdown(); 
 
             if (!currentTrack) {
                 showButtonError("No hi ha cançó seleccionada.");
@@ -1087,8 +1044,6 @@
                 dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
                 categoryContainer.classList.remove('opacity-0', 'scale-95');
                 
-                // Renderitzem la informació de la cançó
-                // I AFEGIM EL RESULTAT DEL BINGO SOTA L'ANY
                 dynamicContentContainer.innerHTML = `
                     <div class="py-4">
                         <p class="text-lg font-semibold">${currentTrack.title}</p>
@@ -1096,7 +1051,6 @@
                         <div class="h-4"></div>
                         <p class="text-6xl font-extrabold text-green-400 mb-2">${currentTrack.year}</p>
                         
-                        <!-- RESULTAT DEL BINGO -->
                         ${currentBingoResult ? `
                         <div class="mt-2 flex flex-col items-center justify-center">
                             <div class="flex items-center justify-center space-x-2">
@@ -1105,7 +1059,6 @@
                                     ${currentBingoResult.label}
                                 </p>
                             </div>
-                            <!-- Mostrar nivell expert si cal -->
                             ${currentLevel === 'expert' ? '<span class="text-xs text-gray-500 mt-1 uppercase tracking-widest">(Nivell Expert)</span>' : ''}
                         </div>
                         ` : ''}
