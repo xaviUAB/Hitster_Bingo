@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hitster Music Bingo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            /* Força la barra de desplaçament vertical per evitar salts de disseny */
+            overflow-y: scroll;
+            /* CORRECCIÓ CLAU: Força l'ocultació de qualsevol desbordament horitzontal */
+            overflow-x: hidden !important; 
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* gray-900 per defecte */
+            /* Centratge vertical i horitzontal de la CARD amb Flexbox */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Permet que el contingut llarg es desplaci */
+            min-height: 100vh;
+            padding: 2rem 1rem; /* Padding a banda i banda per a marges en mòbil */
+            transition: background-color 0.2s ease; /* Transició més ràpida per l'efecte disco */
+        }
+        
+        /* APLICACIÓ DE CENTRATGE I AMPLADA MAXIMAL AL CONTENIDOR PRINCIPAL */
+        #main-card {
+            width: 100%; /* Ocupa tota l'amplada disponible del contenidor flex (body) */
+            max-width: 1024px; /* max-w-4xl - Límit elegant per a la visualització vertical en escriptori */
+            margin: 0 auto; /* Centratge addicional per seguretat */
+            transition: background-color 0.2s ease;
+        }
+
+        /* ========================================================== */
+        /* NOU ESTIL: Mode Horitzontal (Responsive) o Simulat         */
+        /* ========================================================== */
+        
+        .landscape-mode {
+            /* En mode landscape, permetem que s'expandeixi més per aprofitar l'espai */
+            max-width: 1280px !important; /* max-w-7xl, utilitza més espai que abans */
+            
+            /* Grid de dues columnes */
+            display: grid;
+            /* Definim columnes: 1a columna per al reproductor (ample fix/màx 400px), 2a per a la informació (flex) */
+            grid-template-columns: minmax(350px, 400px) 1fr; 
+            gap: 3rem; /* Espai més gran entre columnes */
+        }
+        
+        /* Ajustos per al layout de columnes */
+        .landscape-mode #game-content-container {
+            grid-column: 1 / -1; 
+            display: contents; 
+        }
+        
+        .landscape-mode #game-controls {
+            grid-column: 1 / 2;
+            /* Eliminem el centratge automàtic en mode landscape */
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        
+        .landscape-mode #info-and-setup {
+            grid-column: 2 / 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .landscape-mode #info-spacer {
+            border-top: none !important; 
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Ajust per a la màscara: Assegura que l'alçada sigui 100% de la del reproductor */
+        #player-mask {
+            height: 100%; 
+        }
+
+        /* ========================================================== */
+        /* ESTILS PER LA RULETA BINGO                                 */
+        /* ========================================================== */
+        .roulette-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+            /* Assegura que el comptador absolut es posicioni respecte a això */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .roulette-wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            /* Els 5 colors: Verd, Rosa, Groc, Violeta, Blau Cel */
+            background: conic-gradient(
+                #4ade80 0% 20%,   /* Verd - 1 */
+                #f472b6 20% 40%,  /* Rosa - 2 */
+                #facc15 40% 60%,  /* Groc - 3 */
+                #a78bfa 60% 80%,  /* Violeta - 4 */
+                #22d3ee 80% 100%  /* Blau - 5 */
+            );
+            transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1); /* Efecte de desacceleració */
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            border: 4px solid #374151; /* Border gris fosc */
+        }
+
+        .roulette-arrow {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 24px solid white; /* Fletxa blanca apuntant avall */
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+        }
+
+        .roulette-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background-color: #374151;
+            border-radius: 50%;
+            z-index: 5;
+        }
+        
+        /* Estil per al comptador superposat */
+        #countdown-display {
+            position: absolute;
+            z-index: 20; /* Per sobre de la ruleta i la fletxa */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-variant-numeric: tabular-nums;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8); /* Ombra forta per contrast */
+            pointer-events: none; /* Permet veure el centre de sota si calgués */
+        }
+
+    </style>
+</head>
+<body class="text-white"> 
+
+    <!-- El contenidor principal de la card (s'elimina #app-wrapper) -->
+    <div id="main-card" class="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl transition-colors duration-300">
+        
+        <!-- HEADER AMB BOTÓ DE SIMULACIÓ I BOTÓ D'INSTRUCCIONS -->
+        <header class="mb-6 flex justify-between items-center">
+            
+            <!-- CONTENIDOR DE BOTONS ESQUERRA (Buit per al centratge) -->
+            <div class="flex-grow flex justify-start items-center space-x-2">
+                <!-- Botó d'Informació (i) - NOU -->
+                <a href="https://xaviuab.github.io/Hitster_Digital/instruccions.html" target="_blank">
+                    <button class="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full flex items-center justify-center text-lg transition duration-300 ease-in-out shadow-md" title="Instruccions del Joc (s'obre en una pestanya nova)">
+                        i
+                    </button>
+                </a>
+            </div>
+            
+            <!-- TÍTOL CENTRAL (Flex-grow 0 per no expandir-se) -->
+            <h1 class="text-2xl sm:text-3xl font-bold text-green-400 flex-shrink-0">Hitster Music Bingo</h1>
+            
+            <!-- CONTENIDOR DE BOTONS DRETA (Per centrar el títol) -->
+            <div class="flex-grow flex justify-end items-center">
+                <!-- BOTÓ DE SIMULACIÓ -->
+                <button id="toggle-orientation-btn" 
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 w-10 h-10 text-lg rounded-full transition duration-300 shadow-md flex items-center justify-center">
+                    🔄
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENIDOR DEL JOC - Aquest serà el grid container en mode landscape -->
+        <div id="game-content-container" class="space-y-6">
+
+            <!-- COLUMNA 1: Reproductor i Controls 
+                 APLICACIÓ DE MIDA FIXA PER AL MODE VERTICAL:
+                 max-w-[400px] limita l'amplada del reproductor.
+                 mx-auto centra-ho en el mode vertical.
+            -->
+            <div id="game-controls" class="max-w-[400px] mx-auto">
+                
+                <!-- CONTENIDOR FIX: Fixat a h-[160px] i w-full (de max-w-[400px]) -->
+                <div id="spotify-player-container" 
+                    class="relative rounded-lg overflow-hidden flex items-center justify-center bg-gray-700 w-full h-[160px] transition-colors duration-300">
+                    <!-- Reproductor o missatge d'estat -->
+                </div>
+
+                <!-- CONTENIDOR DE BOTONS PRINCIPALS -->
+                <div class="relative min-h-[44px] mt-6">
+                    <button id="nou-hit-button" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed">
+                        Nou Hit
+                    </button>
+                    <button id="mostrar-info-button" 
+                        class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out absolute inset-0 hidden">
+                        Mostrar informació
+                    </button>
+                </div>
+            </div>
+
+            <!-- COLUMNA 2: Informació Dinàmica i Configuració -->
+            <div id="info-and-setup">
+                <!-- SECCIÓ DE CONTINGUT DINÀMIC FIX (Solució CLS) -->
+                <div id="info-spacer" class="mt-6 pt-4 border-t border-gray-700">
+                    
+                    <div id="dynamic-content-container" class="content-transition opacity-100 min-h-[220px] flex flex-col items-center justify-center text-center">
+                        <!-- Informació de la cançó o selecció de categories es renderitza aquí -->
+                    </div>
+                    
+                    <div id="category-container" class="content-transition opacity-100 min-h-[40px] text-center pt-2">
+                        <!-- Informació de la categoria es renderitza aquí -->
+                    </div>
+                </div>
+                <!-- /SECCIÓ DE CONTINGUT DINÀMIC FIX -->
+
+                <!-- Secció per pujar fitxers - OCULTA INICIALMENT AMB LA CLASSE 'hidden' -->
+                <div id="upload-section" class="my-4 w-full space-y-2 flex flex-col hidden">
+                    <input type="file" id="file-input" accept=".csv,.txt" multiple class="hidden"/>
+                    
+                    <!-- CONTENIDOR FLEX PER AL BOTÓ PUJAR -->
+                    <div class="flex items-center space-x-2">
+                        <!-- Botó Pujar Fitxers (ocupa l'espai restant) -->
+                        <button id="upload-button" class="flex-grow bg-gray-700/50 hover:bg-gray-700 text-white py-2.5 px-4 rounded-lg transition duration-300 ease-in-out">
+                            Pujar Fitxer(s) CSV/TXT
+                        </button>
+                    </div>
+                    
+                    <!-- LLISTA/ESTAT DELS FITXERS CARREGATS -->
+                    <div id="file-list" class="text-xs text-gray-400 mt-2 text-center min-h-[1.5rem]"></div>
+                </div>
+            </div> <!-- Fi info-and-setup -->
+        </div> <!-- Fi game-content-container -->
+
+        <footer class="text-center text-gray-500 text-xs mt-6">
+            <p class="my-0">Una app de XRG</p>
+        </footer>
+    </div> <!-- Fi main-card -->
+
+    <script>
+        // --- Referències a elements del DOM ---
+        const playerContainer = document.getElementById('spotify-player-container');
+        const nouHitButton = document.getElementById('nou-hit-button');
+        const mostrarInfoButton = document.getElementById('mostrar-info-button');
+        const dynamicContentContainer = document.getElementById('dynamic-content-container');
+        const categoryContainer = document.getElementById('category-container');
+        const uploadButton = document.getElementById('upload-button');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const uploadSection = document.getElementById('upload-section'); 
+        // REFERÈNCIES PER A RESPONSIVE
+        const mainCard = document.getElementById('main-card');
+        const toggleOrientationBtn = document.getElementById('toggle-orientation-btn');
+
+        // --- Constants per a la càrrega remota ---
+        const REMOTE_CONTENT_BASE_URL = 'https://raw.githubusercontent.com/xaviuab/Hitster_Digital/main/dades/';
+        const GITHUB_API_URL = "https://api.github.com/repos/xaviuab/Hitster_Digital/contents/dades";
+        
+        // --- Configuració del Bingo (CARA A - Novell) ---
+        const bingoTasksNovell = [
+            { label: "Grup o solista", color: "#4ade80", textColorClass: "text-green-400" },      // Verd
+            { label: "Anterior al 2000?", color: "#f472b6", textColorClass: "text-pink-400" },    // Rosa
+            { label: "4 anys amunt o avall", color: "#facc15", textColorClass: "text-yellow-400" }, // Groc
+            { label: "Dècada", color: "#a78bfa", textColorClass: "text-violet-400" },             // Violeta
+            { label: "2 anys amunt o avall", color: "#22d3ee", textColorClass: "text-cyan-400" }    // Blau
+        ];
+
+        // --- Configuració del Bingo (CARA B - Expert) ---
+        const bingoTasksExpert = [
+            { label: "Títol de la cançó", color: "#4ade80", textColorClass: "text-green-400" },     // Verd
+            { label: "Any exacte", color: "#f472b6", textColorClass: "text-pink-400" },             // Rosa
+            { label: "Nom del grup o solista", color: "#facc15", textColorClass: "text-yellow-400" }, // Groc
+            { label: "Dècada", color: "#a78bfa", textColorClass: "text-violet-400" },               // Violeta
+            { label: "3 anys amunt o avall", color: "#22d3ee", textColorClass: "text-cyan-400" }    // Blau
+        ];
+        
+        // --- Estat de l'aplicació ---
+        let errorTimeout;
+        let allTracksFromFile = [];
+        let loadedFileMetadata = []; 
+        let availableTracks = [];
+        let currentTrack;
+        let categoriesLocked = false;
+        let selectedCategoriesOnLoad = [];
+        let totalTracksCountByCategory = {}; 
+        let spotifyAccountType = null; 
+        let isSimulatedLandscape = false;
+        let currentBingoResult = null; 
+        let currentLevel = 'novell'; 
+        
+        // --- Variables per al compte enrere ---
+        let countdownInterval = null;
+        let rapidColorInterval = null; // Interval per al canvi ràpid de color
+        const DEFAULT_BODY_BG = '#111827'; // gray-900
+        const DEFAULT_CARD_BG = '#1f2937'; // gray-800
+        const DEFAULT_PLAYER_BG = '#374151'; // gray-700
+
+        // --- AUDIO CONTEXT ---
+        let audioCtx = null;
+
+        /** Inicialitza o reprèn el context d'àudio */
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        /** Genera un beep */
+        function playBeep(duration, frequency, type = 'square') {
+            try {
+                initAudio();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = type; // 'square' sona més fort
+                oscillator.frequency.value = frequency;
+                
+                // Connectar: Oscillator -> Gain -> Destination
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // Volum més alt per assegurar que s'escolta
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn("Audio error:", e);
+            }
+        }
+
+
+        /** Funció per netejar el nom de la categoria */
+        function getCleanCategoryName(filename) {
+            let baseName = filename.split('.').slice(0, -1).join('.');
+            while (baseName.startsWith('.') || baseName.startsWith('_')) {
+                baseName = baseName.substring(1); 
+            }
+            return baseName || filename;
+        }
+
+        /** Parsejar contingut CSV */
+        function parseCsvContent(fileContent, categoryName) {
+            const tracks = [];
+            const lines = fileContent.trim().split('\n');
+            
+            if (lines.length <= 1) return tracks;
+
+            const delimiter = ';'; 
+            const startLine = (lines[0].split(delimiter).length >= 4 && lines[0].toLowerCase().includes('spotify')) ? 1 : 0;
+
+            for (let i = startLine; i < lines.length; i++) { 
+                const line = lines[i].trim();
+                if (!line) continue; 
+
+                const parts = line.split(delimiter);
+                const cleanedParts = parts.map(part => part.trim().replace(/^"|"$/g, ''));
+
+                if (cleanedParts.length >= 4) {
+                    const uri = cleanedParts[0]; 	
+                    const title = cleanedParts[1]; 	
+                    const artist = cleanedParts[2]; 	
+                    const yearData = cleanedParts[3]; 
+                    const yearMatch = yearData.match(/\d{4}/);
+                    const year = yearMatch ? yearMatch[0] : 'N/A';
+                    const finalCategory = categoryName;
+
+                    if (uri && title && finalCategory) {
+                        tracks.push({
+                            uri: uri,
+                            title: title,
+                            artist: artist,
+                            year: year,
+                            category: finalCategory,
+                        });
+                    }
+                }
+            }
+            return tracks;
+        }
+
+        /** Missatge inicial del reproductor */
+        function showInitialPlayerMessage() {
+            let message = '';
+            if (!spotifyAccountType) {
+                message = `✨ Tria el tipus de compte Spotify 🎤`;
+            } else {
+                message = `✨ Tria el nivell, les categories 🎤<br>
+                            i fes "Nou Hit" per començar`;
+            }
+
+            playerContainer.innerHTML = `<p class="text-white font-bold text-center p-4 text-lg">
+                ${message}
+            </p>`;
+        }
+
+        function hideDynamicContent() {
+            dynamicContentContainer.classList.add('opacity-0', 'scale-95');
+            categoryContainer.classList.add('opacity-0', 'scale-95');
+        }
+        
+        function showButtonError(message) {
+            nouHitButton.textContent = message;
+            nouHitButton.classList.remove('bg-green-500', 'hover:bg-green-600', 'text-gray-900');
+            nouHitButton.classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
+            clearTimeout(errorTimeout);
+            errorTimeout = setTimeout(() => {
+                nouHitButton.textContent = 'Nou Hit';
+                nouHitButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'text-white');
+                nouHitButton.classList.add('bg-green-500', 'hover:bg-green-600', 'text-gray-900');
+                
+                if (!categoriesLocked) {
+                    if (spotifyAccountType) {
+                        updateButtonState(); 
+                    } else {
+                        nouHitButton.disabled = true;
+                    }
+                }
+            }, 3000);
+        }
+
+        function updateButtonState() {
+            const checkboxes = document.querySelectorAll('input[name="category"]');
+            const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+            nouHitButton.disabled = !(spotifyAccountType && anyChecked);
+        }
+
+        function selectAllCategories() {
+            const labels = document.querySelectorAll('.category-label');
+            labels.forEach(label => {
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = true;
+                    updateCategoryStyle(label);
+                }
+            });
+            updateButtonState();
+        }
+
+        function deselectAllCategories() {
+            const labels = document.querySelectorAll('.category-label');
+            labels.forEach(label => {
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = false;
+                    updateCategoryStyle(label);
+                }
+            });
+            updateButtonState();
+        }
+
+        async function processFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const fileContent = event.target.result;
+                    const categoryName = getCleanCategoryName(file.name);
+                    const tracks = parseCsvContent(fileContent, categoryName);
+                    resolve({tracks, categoryName, isPriority: file.name.startsWith('_')});
+                };
+                reader.onerror = (error) => reject(error);
+                reader.readAsText(file);
+            });
+        }
+
+        async function handleFileUpload(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+
+            uploadButton.disabled = true;
+            uploadButton.textContent = 'Processant...';
+            
+            selectedCategoriesOnLoad = Array.from(document.querySelectorAll('input[name="category"]:checked')).map(input => input.value);
+
+            for (const file of files) {
+                if (loadedFileMetadata.some(meta => meta.originalName === file.name)) continue; 
+                try {
+                    const { tracks: newTracks, categoryName, isPriority } = await processFile(file);
+                    
+                    allTracksFromFile.push(...newTracks);
+                    loadedFileMetadata.push({ 
+                        originalName: file.name, 
+                        cleanName: categoryName,
+                        isPriority: isPriority 
+                    });
+                    
+                    totalTracksCountByCategory[categoryName] = (totalTracksCountByCategory[categoryName] || 0) + newTracks.length;
+                    
+                    if (!selectedCategoriesOnLoad.includes(categoryName)) {
+                        selectedCategoriesOnLoad.push(categoryName);
+                    }
+                } catch (error) {
+                    console.error("Error llegint el fitxer:", error);
+                }
+            }
+            
+            fileList.innerHTML = ''; 
+
+            if (allTracksFromFile.length > 0) {
+                renderSetupSection(); 
+            }
+
+            uploadButton.disabled = false;
+            uploadButton.textContent = 'Pujar Fitxer(s) CSV/TXT';
+            fileInput.value = ''; 
+        }
+        
+        async function fetchRemoteCsvs() {
+            const baseElement = document.getElementById('file-list');
+            baseElement.innerHTML = `<span class="text-blue-400">🔍 Buscant categories remotes a la carpeta 'dades' (API GitHub)...</span>`;
+            
+            let remoteFilesToLoad = [];
+            let successfullyLoadedCount = 0;
+
+            try {
+                const apiResponse = await fetch(GITHUB_API_URL);
+                if (!apiResponse.ok) {
+                    console.error(`Error de l'API de GitHub: ${apiResponse.statusText}. Es continua sense la càrrega dinàmica.`);
+                } else {
+                    const contents = await apiResponse.json();
+                    if (Array.isArray(contents)) {
+                        const allCsvFiles = contents
+                            .filter(item => 
+                                item.type === 'file' && 
+                                item.name.toLowerCase().endsWith('.csv') && 
+                                !item.name.startsWith('.') && 
+                                !loadedFileMetadata.some(meta => meta.originalName === item.name)
+                            )
+                            .map(item => item.name);
+                        
+                        const underscoreFiles = allCsvFiles.filter(name => name.startsWith('_'));
+                        const otherFiles = allCsvFiles.filter(name => !name.startsWith('_'));
+                        remoteFilesToLoad = underscoreFiles.concat(otherFiles);
+                    }
+                }
+            } catch (error) {
+                console.warn("No s'ha pogut connectar a l'API de GitHub. Utilitzant només llistes internes i locals.", error);
+            }
+            
+            const fetchPromises = remoteFilesToLoad.map(async (filename) => {
+                const encodedFilename = encodeURIComponent(filename); 
+                const url = `${REMOTE_CONTENT_BASE_URL}${encodedFilename}`; 
+                
+                const categoryName = getCleanCategoryName(filename); 
+                const isPriority = filename.startsWith('_'); 
+
+                try {
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP carregant ${filename}: ${response.status}`);
+                    }
+                    
+                    const fileContent = await response.text();
+                    
+                    const newTracks = parseCsvContent(fileContent, categoryName);
+                    
+                    if (newTracks.length > 0) {
+                        allTracksFromFile.push(...newTracks);
+                        loadedFileMetadata.push({ 
+                            originalName: filename, 
+                            cleanName: categoryName,
+                            isPriority: isPriority 
+                        }); 
+                        
+                        totalTracksCountByCategory[categoryName] = newTracks.length;
+                        
+                        if (!selectedCategoriesOnLoad.includes(categoryName)) {
+                            selectedCategoriesOnLoad.push(categoryName);
+                        }
+                        successfullyLoadedCount++;
+                    }
+
+                } catch (error) {
+                    console.error(`Error processant ${filename}:`, error);
+                }
+            });
+
+            await Promise.all(fetchPromises);
+            
+            if (successfullyLoadedCount > 0) {
+                baseElement.innerHTML = ''; 
+            } else if (remoteFilesToLoad.length > 0) {
+                baseElement.innerHTML = `<span class="text-yellow-400">⚠️ Les categories remotes s'han detectat, però hi ha hagut un error en la càrrega o estan buides.</span>`;
+            } else {
+                baseElement.innerHTML = `<span class="text-gray-400">No s'han trobat fitxers CSV addicionals a la carpeta 'dades' del repositori.</span>`;
+            }
+        }
+
+        function updateCategoryStyle(labelElement) {
+            const checkbox = labelElement.querySelector('input[type="checkbox"]');
+            const span = labelElement.querySelector('span');
+            const isPriority = labelElement.dataset.priority === 'true';
+            const selectedClasses = 'bg-green-500 text-gray-900 hover:bg-green-600 shadow-md'; 
+            const defaultClasses = isPriority
+                ? 'bg-gray-600 text-white hover:bg-gray-500' 
+                : 'bg-gray-700/50 text-white hover:bg-gray-700';
+
+            labelElement.classList.remove('bg-green-500', 'hover:bg-green-600', 'bg-blue-500', 'hover:bg-blue-600', 'bg-gray-700/50', 'bg-gray-600', 'text-gray-900', 'shadow-md', 'border', 'border-transparent');
+            checkbox.classList.remove('text-green-500', 'text-blue-400', 'text-gray-900');
+
+            if (checkbox.checked) {
+                labelElement.classList.add(...selectedClasses.split(' '));
+                span.classList.add('font-bold'); 
+                checkbox.classList.add('text-gray-900'); 
+            } else {
+                labelElement.classList.add(...defaultClasses.split(' '));
+                span.classList.remove('font-bold'); 
+                
+                if (isPriority) {
+                     checkbox.classList.add('text-blue-400'); 
+                } else {
+                     checkbox.classList.add('text-green-500'); 
+                }
+            }
+        }
+
+        function renderSetupSection() {
+            categoriesLocked = false;
+            
+            nouHitButton.classList.remove('hidden');
+            mostrarInfoButton.classList.add('hidden');
+            
+            showInitialPlayerMessage();
+            
+            hideDynamicContent(); 
+            
+            setTimeout(() => {
+                dynamicContentContainer.innerHTML = '';
+                categoryContainer.innerHTML = '';
+                dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
+                categoryContainer.classList.remove('opacity-0', 'scale-95');
+
+                if (!spotifyAccountType) {
+                    uploadSection.classList.add('hidden'); 
+                    dynamicContentContainer.innerHTML = `
+                        <div class="py-4 w-full px-4">
+                            <p class="text-lg font-semibold mb-6">Tria el tipus de compte Spotify</p>
+                            <div class="space-y-4">
+                                <button data-account="premium" class="account-choice w-full bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-3 rounded-lg transition duration-150 shadow-md">
+                                    Premium
+                                </button>
+                                <button data-account="free" class="account-choice w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 rounded-lg transition duration-150 shadow-md">
+                                    Gratuït
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    nouHitButton.disabled = true;
+
+                    document.querySelectorAll('.account-choice').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            spotifyAccountType = e.target.getAttribute('data-account');
+                            selectedCategoriesOnLoad = []; 
+                            renderSetupSection(); 
+                        });
+                    });
+                    return; 
+                }
+
+                uploadSection.classList.remove('hidden'); 
+
+                const categoryInfoMap = new Map(); 
+                loadedFileMetadata.forEach(meta => {
+                    if (!categoryInfoMap.has(meta.cleanName)) {
+                        categoryInfoMap.set(meta.cleanName, {
+                            cleanName: meta.cleanName,
+                            isPriority: meta.isPriority 
+                        });
+                    }
+                });
+
+                const allCategories = Array.from(categoryInfoMap.values());
+                
+                allCategories.sort((a, b) => {
+                    if (a.isPriority && !b.isPriority) return -1;
+                    if (!a.isPriority && b.isPriority) return 1;
+                    return a.cleanName.localeCompare(b.cleanName);
+                });
+                
+                let categoryCheckboxes = '';
+                allCategories.forEach(category => {
+                    const cleanName = category.cleanName;
+                    const isPriority = category.isPriority;
+                    const count = allTracksFromFile.filter(t => t.category === cleanName).length; 
+                    const isChecked = selectedCategoriesOnLoad.includes(cleanName);
+                    const baseClasses = 'flex items-center cursor-pointer p-2 text-sm sm:text-base rounded-lg transition duration-150';
+                    const displayCategory = `${cleanName} (${count} hits)`;
+
+                    categoryCheckboxes += `
+                        <label class="category-label ${baseClasses}" 
+                                data-category="${cleanName}"
+                                data-priority="${isPriority}">
+                            <input type="checkbox" name="category" value="${cleanName}" class="form-checkbox focus:ring-current rounded" ${isChecked ? 'checked' : ''}>
+                            <span class="ml-2">${displayCategory}</span>
+                        </label>
+                    `;
+                });
+
+                // Estils dels botons: VERD (Hitster) per actiu, GRIS per inactiu
+                const activeClassesStr = 'bg-green-500 text-gray-900 shadow-md';
+                const inactiveClassesStr = 'bg-gray-700 text-gray-300 hover:bg-gray-600';
+
+                const novellClass = currentLevel === 'novell' ? activeClassesStr : inactiveClassesStr;
+                const expertClass = currentLevel === 'expert' ? activeClassesStr : inactiveClassesStr;
+
+                dynamicContentContainer.innerHTML = `
+                    <div class="py-4 w-full">
+                        
+                        <!-- SELECCIÓ DE NIVELL -->
+                        <p class="text-sm text-gray-400 text-center mb-2">Tria el nivell</p>
+                        <div class="flex justify-center space-x-4 mb-6 px-4">
+                            <button id="level-novell-btn" class="flex-1 py-2 px-4 rounded-lg font-bold transition duration-200 ${novellClass}">
+                                Novell
+                            </button>
+                            <button id="level-expert-btn" class="flex-1 py-2 px-4 rounded-lg font-bold transition duration-200 ${expertClass}">
+                                Expert
+                            </button>
+                        </div>
+                        <hr class="border-gray-700 mb-6 mx-4" />
+
+                        <p class="text-sm text-gray-400 text-center mb-4">Tria una o més categories</p>
+                        <div class="flex justify-center space-x-3 mb-4 px-2 sm:px-4">
+                            <button id="select-all-btn" class="text-xs font-semibold text-white/80 hover:text-white transition duration-150 p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700 flex-1 shadow-inner">
+                                Seleccionar totes
+                            </button>
+                            <button id="deselect-all-btn" class="text-xs font-semibold text-white/80 hover:text-white transition duration-150 p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700 flex-1 shadow-inner">
+                                Deseleccionar totes
+                            </button>
+                        </div>
+                        <div id="category-grid" class="grid grid-cols-2 gap-3 px-2 sm:px-4">
+                            ${categoryCheckboxes}
+                        </div>
+                    </div>
+                `;
+                
+                dynamicContentContainer.classList.add('opacity-100', 'scale-100');
+
+                // Helper per actualitzar estils sense recarregar tota la secció
+                const updateLevelButtons = () => {
+                     const novellBtn = document.getElementById('level-novell-btn');
+                     const expertBtn = document.getElementById('level-expert-btn');
+                     
+                     const activeClasses = ['bg-green-500', 'text-gray-900', 'shadow-md'];
+                     const inactiveClasses = ['bg-gray-700', 'text-gray-300', 'hover:bg-gray-600'];
+
+                     // Neteja classes
+                     novellBtn.classList.remove(...activeClasses, ...inactiveClasses);
+                     expertBtn.classList.remove(...activeClasses, ...inactiveClasses);
+
+                     if (currentLevel === 'novell') {
+                         novellBtn.classList.add(...activeClasses);
+                         expertBtn.classList.add(...inactiveClasses);
+                     } else {
+                         expertBtn.classList.add(...activeClasses);
+                         novellBtn.classList.add(...inactiveClasses);
+                     }
+                };
+
+                // Listeners per al nivell (SENSE recarregar tota la secció)
+                document.getElementById('level-novell-btn').addEventListener('click', () => {
+                    currentLevel = 'novell';
+                    updateLevelButtons();
+                });
+                document.getElementById('level-expert-btn').addEventListener('click', () => {
+                    currentLevel = 'expert';
+                    updateLevelButtons();
+                });
+
+
+                const labels = document.querySelectorAll('.category-label');
+                const selectAllBtn = document.getElementById('select-all-btn');
+                const deselectAllBtn = document.getElementById('deselect-all-btn');
+
+                if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllCategories);
+                if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllCategories);
+
+                labels.forEach(label => {
+                    updateCategoryStyle(label);
+                    label.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+                        updateCategoryStyle(label);
+                        updateButtonState();
+                    });
+                });
+
+                updateButtonState(); 
+            }, 300); 
+        }
+        
+        /** Estableix el color de fons globalment */
+        function setGlobalColor(color) {
+            // Body
+            document.body.style.backgroundColor = color;
+            // Main Card
+            document.getElementById('main-card').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_CARD_BG : color;
+            // Player Container
+            document.getElementById('spotify-player-container').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_PLAYER_BG : color;
+        }
+
+        function stopCountdown() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (rapidColorInterval) clearInterval(rapidColorInterval);
+            
+            countdownInterval = null;
+            rapidColorInterval = null;
+            
+            // Restaurar colors originals
+            setGlobalColor(DEFAULT_BODY_BG);
+        }
+
+        function startCountdown() {
+            // Assegurar neteja prèvia
+            stopCountdown();
+            initAudio();
+
+            let timeLeft = 25;
+            const countdownDisplay = document.getElementById('countdown-display');
+            if (countdownDisplay) countdownDisplay.textContent = timeLeft;
+
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                if (countdownDisplay) countdownDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    // INICI DE LA SEQÜÈNCIA RÀPIDA (Últims 5s)
+                    playBeep(0.2, 880, 'square'); // Beep audible a cada segon
+                    
+                    // Si no hi ha interval ràpid actiu, el creem
+                    if (!rapidColorInterval) {
+                        let colorIndex = 0;
+                        const discoColors = ['#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#f472b6']; // Groc, Verd, Blau, Lila, Rosa
+                        
+                        // Interval ràpid: Canvia color cada 200ms (5 vegades per segon)
+                        rapidColorInterval = setInterval(() => {
+                            setGlobalColor(discoColors[colorIndex]);
+                            colorIndex = (colorIndex + 1) % discoColors.length;
+                        }, 200);
+                    }
+                } else if (timeLeft === 0) {
+                    // FINAL
+                    playBeep(1.0, 440, 'square'); // Beep llarg final
+                    stopCountdown(); // Atura tot i restaura colors
+                }
+                
+            }, 1000);
+        }
+
+        function resetGame() {
+            stopCountdown(); 
+            categoriesLocked = false;
+            availableTracks = [];
+            currentTrack = null;
+            spotifyAccountType = null;
+            selectedCategoriesOnLoad = [];
+            currentLevel = 'novell'; 
+            hideDynamicContent(); 
+            setTimeout(renderSetupSection, 300);
+        }
+
+        function loadTrackAndPlayer() {
+            playerContainer.innerHTML = `<p class="text-gray-400 text-center p-4">Carregant reproductor...</p>`;
+
+            const randomIndex = Math.floor(Math.random() * availableTracks.length);
+            currentTrack = availableTracks[randomIndex];
+            const trackId = currentTrack.uri.split(':').pop();
+            const startSeconds = spotifyAccountType === 'free' ? 0 : 60; 
+            const urlToLoad = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&autoplay=1&t=${startSeconds}`;
+            
+            const iframe = document.createElement('iframe');
+            iframe.style.borderRadius = '12px';
+            iframe.src = urlToLoad;
+            iframe.width = '100%'; 
+            iframe.height = '160'; 
+            iframe.frameBorder = '0';
+            iframe.allowFullscreen = true;
+            iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+            iframe.loading = 'lazy';
+            
+            const mask = document.createElement('div');
+            mask.id = 'player-mask';
+            mask.className = 'absolute inset-0 bg-gray-800 rounded-lg transition-opacity duration-500';
+            
+            const maskPosition = '93% 80%';
+            mask.style.webkitMaskImage = `radial-gradient(circle at ${maskPosition}, transparent 19px, black 19px)`;
+            mask.style.maskImage = `radial-gradient(circle at ${maskPosition}, transparent 19px, black 19px)`;
+            mask.style.pointerEvents = 'none';
+
+            playerContainer.innerHTML = '';
+            playerContainer.appendChild(iframe);
+            playerContainer.appendChild(mask);
+            
+            iframe.onload = () => {
+                nouHitButton.classList.add('hidden');
+                mostrarInfoButton.classList.remove('hidden');
+            };
+            
+            iframe.onerror = () => {
+                showButtonError("Error de càrrega.");
+                playerContainer.innerHTML = `<p class="text-gray-400 text-center p-4">Error de càrrega.</p>`;
+                nouHitButton.classList.remove('hidden');
+                mostrarInfoButton.classList.add('hidden');
+                nouHitButton.disabled = false; 
+                if (mask) mask.remove();
+            };
+
+            availableTracks.splice(randomIndex, 1);
+        }
+
+        /** Lògica per renderitzar i animar la ruleta */
+        function renderAndSpinWheel() {
+            // 1. Seleccionar el llistat de tasques segons el nivell
+            const tasksToUse = currentLevel === 'expert' ? bingoTasksExpert : bingoTasksNovell;
+
+            // 2. Escollir una tasca de bingo aleatòria (0 a 4)
+            const taskIndex = Math.floor(Math.random() * tasksToUse.length);
+            currentBingoResult = tasksToUse[taskIndex];
+
+            // 3. Renderitzar l'estructura (amb espai reservat per al text)
+            dynamicContentContainer.innerHTML = `
+                <div class="py-4 w-full flex flex-col items-center">
+                    <!-- Contenidor per al text del resultat (Inicialment invisible) -->
+                    <div id="bingo-result-text" class="h-10 mb-4 flex items-center justify-center transition-all duration-500 opacity-0 transform scale-95">
+                        <!-- El text s'injectarà aquí després -->
+                    </div>
+
+                    <!-- CONTENIDOR RULETA + COMPTADOR -->
+                    <div class="roulette-container mb-4">
+                        <div class="roulette-arrow"></div>
+                        <div class="roulette-wheel" id="wheel"></div>
+                        <div class="roulette-center"></div>
+                        
+                        <!-- COMPTADOR SUPERPOSAT AL CENTRE (Absolute) -->
+                        <div id="countdown-display" class="text-7xl font-black text-white/20 transition-all duration-300">
+                            25
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 4. Calcular la rotació
+            const segmentCenter = (taskIndex * 72) + 36;
+            const targetRotation = (360 - segmentCenter) + (360 * 5); // +5 voltes completes
+
+            // 5. Aplicar rotació i mostrar text amb retard
+            setTimeout(() => {
+                const wheel = document.getElementById('wheel');
+                if (wheel) {
+                    wheel.style.transform = `rotate(${targetRotation}deg)`;
+                }
+                
+                // Després de 3 segons (quan s'atura la ruleta)
+                setTimeout(() => {
+                    // 1. Mostrar text resultat
+                    const resultTextDiv = document.getElementById('bingo-result-text');
+                    if (resultTextDiv) {
+                        resultTextDiv.innerHTML = `
+                            <span class="text-2xl font-extrabold uppercase tracking-wider ${currentBingoResult.textColorClass} drop-shadow-md text-center leading-tight">
+                                ${currentBingoResult.label}
+                            </span>
+                        `;
+                        resultTextDiv.classList.remove('opacity-0', 'scale-95');
+                        resultTextDiv.classList.add('opacity-100', 'scale-100');
+                    }
+                    
+                    // 2. Activar visibilitat completa del comptador
+                    const countdownDisplay = document.getElementById('countdown-display');
+                    if (countdownDisplay) {
+                        countdownDisplay.classList.remove('text-white/20');
+                        countdownDisplay.classList.add('text-white');
+                        // Afegim una ombra extra per llegibilitat quan estigui superposat
+                        countdownDisplay.style.textShadow = "0 0 10px rgba(0,0,0,0.9)";
+                    }
+                    
+                    // 3. INICIAR EL COMPTE ENRERE
+                    startCountdown();
+
+                }, 3000); 
+
+            }, 100);
+        }
+
+        /** Gestiona el clic a "Nou Hit" */
+        function handleNouHitClick() {
+            if (nouHitButton.disabled) return;
+            
+            // Iniciem context àudio en interacció usuari per permisos navegador
+            initAudio(); 
+
+            if (!categoriesLocked) {
+                selectedCategoriesOnLoad = Array.from(document.querySelectorAll('input[name="category"]:checked')).map(input => input.value);
+                
+                if (selectedCategoriesOnLoad.length === 0) {
+                    showButtonError('Selecciona una categoria');
+                    return;
+                }
+                
+                if (!spotifyAccountType) {
+                    showButtonError('Tria el tipus de compte Spotify');
+                    return;
+                }
+
+                availableTracks = allTracksFromFile.filter(track => selectedCategoriesOnLoad.includes(track.category));
+                
+                if (availableTracks.length === 0) {
+                    showButtonError('No hi ha cançons en aquestes categories.');
+                    return;
+                }
+                
+                categoriesLocked = true;
+                uploadSection.classList.add('hidden');
+                hideDynamicContent(); 
+                nouHitButton.disabled = true; 
+                
+                setTimeout(() => {
+                    // Mostra i gira la ruleta mentre la música comença
+                    dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
+                    renderAndSpinWheel();
+                    loadTrackAndPlayer();
+                }, 300);
+
+            } else {
+                // Si hi ha compte enrere actiu, l'aturem per si de cas
+                stopCountdown();
+
+                if (availableTracks.length === 0) {
+                    nouHitButton.disabled = true;
+                    mostrarInfoButton.classList.add('hidden');
+                    playerContainer.innerHTML = `<p class="text-white font-bold text-center p-4 text-xl">
+                        💿 Ja no queden cançons per mostrar 🎸<br>
+                        <span class="text-sm text-gray-400">(Reiniciant en 5 segons)</span>
+                    </p>`;
+                    hideDynamicContent(); 
+                    setTimeout(resetGame, 5000); 
+                    return;
+                }
+                
+                nouHitButton.disabled = true;
+                hideDynamicContent(); 
+                
+                setTimeout(() => {
+                    dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
+                    renderAndSpinWheel();
+                    loadTrackAndPlayer();
+                }, 300);
+            }
+        }
+        
+        /** Mostra la informació de la cançó actual i el resultat del bingo */
+        function handleMostrarInfoClick() {
+            stopCountdown(); // ATURAR EL COMPTE ENRERE
+
+            if (!currentTrack) {
+                showButtonError("No hi ha cançó seleccionada.");
+                return;
+            }
+            
+            const mask = document.getElementById('player-mask');
+            if (mask) mask.remove();
+            
+            dynamicContentContainer.classList.add('opacity-0', 'scale-95');
+            categoryContainer.classList.add('opacity-0', 'scale-95');
+
+            const currentCategory = currentTrack.category;
+            const totalCount = allTracksFromFile.filter(t => t.category === currentCategory).length;
+            const remainingCount = availableTracks.filter(track => track.category === currentCategory).length;
+            const playedCount = totalCount - remainingCount;
+
+            setTimeout(() => {
+                dynamicContentContainer.innerHTML = '';
+                categoryContainer.innerHTML = '';
+                dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
+                categoryContainer.classList.remove('opacity-0', 'scale-95');
+                
+                // Renderitzem la informació de la cançó
+                // I AFEGIM EL RESULTAT DEL BINGO SOTA L'ANY
+                dynamicContentContainer.innerHTML = `
+                    <div class="py-4">
+                        <p class="text-lg font-semibold">${currentTrack.title}</p>
+                        <p class="font-bold text-sm text-gray-400 mt-1">${currentTrack.artist}</p>
+                        <div class="h-4"></div>
+                        <p class="text-6xl font-extrabold text-green-400 mb-2">${currentTrack.year}</p>
+                        
+                        <!-- RESULTAT DEL BINGO -->
+                        ${currentBingoResult ? `
+                        <div class="mt-2 flex flex-col items-center justify-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <span class="text-2xl">🎲</span>
+                                <p class="text-xl font-bold ${currentBingoResult.textColorClass} uppercase tracking-wide text-center leading-tight">
+                                    ${currentBingoResult.label}
+                                </p>
+                            </div>
+                            <!-- Mostrar nivell expert si cal -->
+                            ${currentLevel === 'expert' ? '<span class="text-xs text-gray-500 mt-1 uppercase tracking-widest">(Nivell Expert)</span>' : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                const currentCategoryMeta = loadedFileMetadata.find(meta => meta.cleanName === currentCategory);
+                const isPriorityCategory = currentCategoryMeta ? currentCategoryMeta.isPriority : false;
+                const categoryColorClass = isPriorityCategory ? 'text-blue-400' : 'text-green-400';
+
+                categoryContainer.innerHTML = `
+                    <p class="text-xs text-gray-400 mb-2">
+                        Categoria: 
+                        <span class="font-medium ${categoryColorClass}">
+                            ${currentCategory} (${playedCount} de ${totalCount})
+                        </span>
+                    </p>
+                `;
+                
+                mostrarInfoButton.classList.add('hidden');
+                nouHitButton.classList.remove('hidden');
+                
+                nouHitButton.disabled = false;
+
+            }, 300);
+        }
+        
+        function toggleOrientationSimulation() {
+            isSimulatedLandscape = !isSimulatedLandscape;
+            if (isSimulatedLandscape) {
+                mainCard.classList.add('landscape-mode');
+                toggleOrientationBtn.textContent = '📐'; 
+                toggleOrientationBtn.title = 'Tornar a Vertical';
+            } else {
+                mainCard.classList.remove('landscape-mode');
+                toggleOrientationBtn.textContent = '🔄'; 
+                toggleOrientationBtn.title = 'Passar a Horitzontal';
+            }
+        }
+
+        async function initialize() {
+            await fetchRemoteCsvs(); 
+            renderSetupSection();
+
+            nouHitButton.addEventListener('click', handleNouHitClick);
+            mostrarInfoButton.addEventListener('click', handleMostrarInfoClick);
+            uploadButton.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileUpload);
+            toggleOrientationBtn.addEventListener('click', toggleOrientationSimulation);
+            toggleOrientationBtn.title = 'Passar a Horitzontal'; 
+
+            if (window.innerWidth >= 1024) { 
+                toggleOrientationSimulation();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
