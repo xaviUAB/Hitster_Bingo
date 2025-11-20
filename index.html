@@ -263,7 +263,8 @@
         const fileInput = document.getElementById('file-input');
         const fileList = document.getElementById('file-list');
         const uploadSection = document.getElementById('upload-section'); 
-        const appTitle = document.getElementById('app-title'); // NOU
+        const appTitle = document.getElementById('app-title'); 
+
         // REFERÈNCIES PER A RESPONSIVE
         const mainCard = document.getElementById('main-card');
         const toggleOrientationBtn = document.getElementById('toggle-orientation-btn');
@@ -338,7 +339,10 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                // Volum constant (0.3 per defecte)
+                const peakVolume = 0.3;
+
+                gainNode.gain.setValueAtTime(peakVolume, audioCtx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
                 oscillator.start();
@@ -386,6 +390,41 @@
                 }
             }
             return tracks;
+        }
+
+        // Helper per calcular dècada (1981-1990 = 80s)
+        function calculateDecadeText(year) {
+            const y = parseInt(year);
+            if (isNaN(y)) return "";
+            // Formula: (Any - 1) / 10 -> part entera -> * 10.
+            // 1990 -> 1989 -> 198 -> 1980.
+            // 1991 -> 1990 -> 199 -> 1990.
+            const decadeStart = Math.floor((y - 1) / 10) * 10;
+            
+            if (decadeStart < 2000) {
+                return `els ${decadeStart % 100}`; // "els 80", "els 90"
+            } else {
+                return `${decadeStart}`; // "2000", "2010"
+            }
+        }
+
+        function calculateRangeText(yearStr, rangeText) {
+             const year = parseInt(yearStr);
+             if (isNaN(year)) return "";
+             
+             // Extreure número de la cadena "4 anys...", "2 anys..."
+             const match = rangeText.match(/(\d+)/);
+             if (!match) return "";
+             const diff = parseInt(match[0]);
+             
+             const start = year - diff;
+             const end = year + diff;
+             
+             let yearsList = [];
+             for (let i = start; i <= end; i++) {
+                 yearsList.push(i);
+             }
+             return yearsList.join(", ");
         }
 
         function showInitialPlayerMessage() {
@@ -769,25 +808,20 @@
         function setGlobalColor(color) {
             const isDefault = (color === DEFAULT_BODY_BG);
 
-            // 1. Body (Fons General)
             document.body.style.backgroundColor = color;
             
-            // 2. Main Card (Àrea Informació/Ruleta) - Sempre Base (reset a buit per usar classe CSS)
             document.getElementById('main-card').style.backgroundColor = '';
             
-            // 3. Player Container (Àrea Reproductor) - Canvia color
             const player = document.getElementById('spotify-player-container');
             if (player) {
                  player.style.backgroundColor = isDefault ? '' : color;
             }
             
-            // 4. Mask (Tapa Reproductor) - Canvia color
             const mask = document.getElementById('player-mask');
             if (mask) {
                 mask.style.backgroundColor = isDefault ? '' : color;
             }
             
-            // 5. Buttons (Nou Hit / Mostrar Informació)
             const btns = [nouHitButton, mostrarInfoButton];
             btns.forEach(btn => {
                 if (btn) {
@@ -801,20 +835,15 @@
                 }
             });
 
-            // 6. App Title Color
             if (appTitle) {
                 appTitle.style.color = isDefault ? '' : color;
             }
         }
 
-        // --- MODIFICAT: Aturar música recarregant l'iframe (sense eliminar-lo) ---
         function stopMusic() {
             const iframe = playerContainer.querySelector('iframe');
             if (iframe) {
-                // Recarrega l'iframe per aturar la reproducció (actua com a pausa/reset)
-                // Assegurem que l'autoplay estigui desactivat en recarregar
                 const currentSrc = iframe.src;
-                // Simplement reassignant src es recarrega i s'atura l'àudio
                 iframe.src = currentSrc;
             }
         }
@@ -828,11 +857,10 @@
             rapidColorInterval = null;
             iframeFocusInterval = null;
             
-            // IMPORTANT: No resetegem el color aquí. El color ha de persistir.
+            setGlobalColor(DEFAULT_BODY_BG);
         }
 
         function startCountdown() {
-            // Assegurar neteja prèvia
             if (countdownInterval) clearInterval(countdownInterval);
             if (rapidColorInterval) clearInterval(rapidColorInterval);
             
@@ -847,32 +875,28 @@
                 if (countdownDisplay) countdownDisplay.textContent = timeLeft;
 
                 if (timeLeft <= 5 && timeLeft > 0) {
-                    // INICI DE LA SEQÜÈNCIA RÀPIDA (Últims 5s)
                     playBeep(0.2, 880, 'square'); 
                     
                     if (!rapidColorInterval) {
                         let colorIndex = 0;
-                        const discoColors = ['#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#f472b6']; // Groc, Verd, Blau, Lila, Rosa
+                        const discoColors = ['#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#f472b6']; 
                         rapidColorInterval = setInterval(() => {
                             setGlobalColor(discoColors[colorIndex]);
                             colorIndex = (colorIndex + 1) % discoColors.length;
                         }, 200);
                     }
                 } else if (timeLeft === 0) {
-                    // FINAL
                     playBeep(1.0, 440, 'square'); 
-                    stopMusic(); // ATURAR MÚSICA (ARA RECARREGA)
+                    stopMusic(); 
                     
-                    // Aturar el compte enrere i l'interval disco
                     if (countdownInterval) clearInterval(countdownInterval);
                     if (rapidColorInterval) clearInterval(rapidColorInterval);
                     if (iframeFocusInterval) clearInterval(iframeFocusInterval);
+                    
                     countdownInterval = null;
                     rapidColorInterval = null;
                     iframeFocusInterval = null;
                     
-                    // IMPORTANT: En acabar el temps, deixem el color de la categoria, NO resetegem al fosc.
-                    // Però hem de treure l'efecte disco i tornar al color fix de la categoria actual
                     if (currentBingoResult) {
                         setGlobalColor(currentBingoResult.color);
                     }
@@ -880,19 +904,15 @@
             }, 1000);
         }
 
-        // --- Monitor per detectar clic a l'iframe ---
         function startIframeFocusMonitor() {
             if (iframeFocusInterval) clearInterval(iframeFocusInterval);
-            // Treure focus actual per assegurar que detectem el canvi
             if (document.activeElement) document.activeElement.blur();
 
             iframeFocusInterval = setInterval(() => {
-                // Detectar si l'element actiu és l'iframe (indica clic de l'usuari)
                 if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
                     clearInterval(iframeFocusInterval);
                     iframeFocusInterval = null;
                     
-                    // Usuari ha fet play -> Girar Ruleta
                     dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
                     renderAndSpinWheel();
                 }
@@ -901,7 +921,6 @@
 
         function resetGame() {
             stopCountdown();
-            // Força el reset del color al base només aquí o a nou hit
             setGlobalColor(DEFAULT_BODY_BG);
             
             categoriesLocked = false;
@@ -915,7 +934,6 @@
         }
 
         function loadTrackAndPlayer() {
-            // CORRECCIÓ: Resetegem el flag de la ruleta per a la nova cançó
             hasWheelSpun = false;
 
             playerContainer.innerHTML = `<p class="text-gray-400 text-center p-4">Carregant reproductor...</p>`;
@@ -924,7 +942,6 @@
             currentTrack = availableTracks[randomIndex];
             const trackId = currentTrack.uri.split(':').pop();
             const startSeconds = spotifyAccountType === 'free' ? 0 : 60; 
-            // NOU: autoplay=0
             const urlToLoad = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&autoplay=0&t=${startSeconds}`;
             
             const iframe = document.createElement('iframe');
@@ -936,7 +953,8 @@
             iframe.allowFullscreen = true;
             iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
             iframe.loading = 'lazy';
-            
+            iframe.title = " "; 
+
             const mask = document.createElement('div');
             mask.id = 'player-mask';
             mask.className = 'absolute inset-0 bg-gray-800 rounded-lg transition-opacity duration-500';
@@ -951,11 +969,7 @@
             
             iframe.onload = () => {
                 nouHitButton.classList.add('hidden');
-                // CORRECCIÓ: No mostrar botó info immediatament
-                // mostrarInfoButton.classList.remove('hidden'); 
                 
-                // CORRECCIÓ: Només iniciem el monitor si la ruleta encara NO ha girat.
-                // Això evita que es torni a activar quan es recarrega l'iframe (stopMusic)
                 if (!hasWheelSpun) {
                     startIframeFocusMonitor();
                 }
@@ -974,7 +988,6 @@
         }
 
         function renderAndSpinWheel() {
-            // CORRECCIÓ: Marquem que la ruleta ja ha girat
             hasWheelSpun = true;
 
             const tasksToUse = currentLevel === 'expert' ? bingoTasksExpert : bingoTasksNovell;
@@ -1022,12 +1035,8 @@
                         countdownDisplay.style.textShadow = "0 0 10px rgba(0,0,0,0.9)";
                     }
                     
-                    // *** NOU: CANVIAR FONS AL COLOR DE LA CATEGORIA ***
                     setGlobalColor(currentBingoResult.color);
-                    
-                    // *** NOU: MOSTRAR BOTÓ INFORMACIÓ ***
                     mostrarInfoButton.classList.remove('hidden');
-
                     startCountdown();
 
                 }, 3000); 
@@ -1037,8 +1046,6 @@
         function handleNouHitClick() {
             if (nouHitButton.disabled) return;
             initAudio(); 
-            
-            // *** NOU: ASSEGURAR QUE TORNEM AL COLOR BASE ***
             setGlobalColor(DEFAULT_BODY_BG);
 
             if (!categoriesLocked) {
@@ -1065,16 +1072,12 @@
                 
                 setTimeout(() => {
                     dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
-                    // NOU: Esborrem contingut i mostrem instruccions
                     dynamicContentContainer.innerHTML = `<div class="text-center animate-pulse mt-4"><p class="text-xl font-bold text-green-400">Fes clic al Play (▶) per girar la ruleta!</p></div>`;
-                    
-                    // NOU: Només carreguem el player. La ruleta espera al focus.
                     loadTrackAndPlayer();
                 }, 300);
 
             } else {
                 stopCountdown();
-                // Reset color base també en nous hits successius
                 setGlobalColor(DEFAULT_BODY_BG);
 
                 if (availableTracks.length === 0) {
@@ -1102,7 +1105,6 @@
         
         function handleMostrarInfoClick() {
             stopCountdown(); 
-            // En mostrar info, NO resetegem el color. 
             if (currentBingoResult) {
                 setGlobalColor(currentBingoResult.color);
             }
@@ -1113,12 +1115,10 @@
             }
             
             const mask = document.getElementById('player-mask');
-            // *** CORRECCIÓ REVERTIDA: ELIMINAR COMPLETAMENT LA MÀSCARA ***
             if (mask) {
                 mask.remove();
             }
             
-            // *** FIX: RESETEJAR EL FONS DEL CONTENIDOR DEL REPRODUCTOR A FOSC ***
             const player = document.getElementById('spotify-player-container');
             if (player) {
                 player.style.backgroundColor = DEFAULT_PLAYER_BG;
@@ -1138,29 +1138,39 @@
                 dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
                 categoryContainer.classList.remove('opacity-0', 'scale-95');
                 
-                // --- NOVA LÒGICA PER DESTACAR LA INFORMACIÓ SEGONS LA CATEGORIA DEL BINGO ---
                 const label = currentBingoResult ? currentBingoResult.label : '';
-                // CONSTANT PER L'ESTIL "NO DESTACAT" UNIFICAT
-                // Text-sm, gris clar (text-gray-400)
                 const dimmedStyle = "text-sm font-bold text-gray-400 mt-1 mb-1";
 
                 let titleClass = "";
                 let artistClass = "";
                 let yearClass = "";
+                
+                let extraInfoHTML = "";
+
+                const trackYear = parseInt(currentTrack.year);
+                if (!isNaN(trackYear)) {
+                    if (label === "Anterior al 2000?") {
+                        const isBefore = trackYear < 2000 ? "SÍ" : "NO";
+                        extraInfoHTML = `<p class="text-lg font-bold text-white mt-1">Anterior al 2000? <span class="text-yellow-300">${isBefore}</span></p>`;
+                    } else if (label === "Dècada") {
+                        const decade = calculateDecadeText(trackYear);
+                        extraInfoHTML = `<p class="text-lg font-bold text-white mt-1">Dècada: <span class="text-yellow-300">${decade}</span></p>`;
+                    } else if (label.includes("anys amunt o avall")) {
+                        const rangeText = calculateRangeText(trackYear, label);
+                        extraInfoHTML = `<p class="text-sm font-bold text-white mt-1">Rang: <span class="text-yellow-300">${rangeText}</span></p>`;
+                    }
+                }
 
                 if (label === "Títol de la cançó") {
-                    // CAS TÍTOL: Títol gran/verd
                     titleClass = "text-4xl font-extrabold text-green-400 leading-tight mb-2";
                     artistClass = dimmedStyle;
                     yearClass = dimmedStyle;
                 } else if (label === "Grup o solista" || label === "Nom del grup o solista") {
-                    // CAS ARTISTA: Artista gran/color categoria
                     titleClass = dimmedStyle;
                     const artistColor = currentBingoResult ? currentBingoResult.textColorClass : 'text-white';
                     artistClass = `text-4xl font-extrabold ${artistColor} mt-1 mb-4 leading-tight`;
                     yearClass = dimmedStyle;
                 } else {
-                    // CAS ANY: Any gran/color categoria
                     titleClass = dimmedStyle;
                     artistClass = dimmedStyle;
                     const yearColor = currentBingoResult ? currentBingoResult.textColorClass : 'text-green-400';
@@ -1171,21 +1181,19 @@
                     <div class="py-4">
                         <p class="${titleClass}">${currentTrack.title}</p>
                         <p class="${artistClass}">${currentTrack.artist}</p>
-                        <!-- MODIFICAT: Espai eliminat o molt petit -->
-                        <!-- <div class="h-4"></div> ELIMINAT -->
                         
-                        <!-- MODIFICAT: Marge top augmentat per al contenidor de categoria (any o categoria) -->
                         <p class="${yearClass}">${currentTrack.year}</p>
                         
                         ${currentBingoResult ? `
-                        <div class="mt-6 flex flex-col items-center justify-center"> <!-- MT-6 AUMENTAT -->
+                        <div class="mt-6 flex flex-col items-center justify-center">
                             <div class="flex items-center justify-center space-x-2">
                                 <span class="text-2xl">🎲</span>
                                 <p class="text-xl font-bold ${currentBingoResult.textColorClass} uppercase tracking-wide text-center leading-tight">
                                     ${currentBingoResult.label}
                                 </p>
                             </div>
-                            ${currentLevel === 'expert' ? '<span class="text-xs text-gray-500 mt-1 uppercase tracking-widest">(Nivell Expert)</span>' : ''}
+                            ${extraInfoHTML}
+                            ${currentLevel === 'expert' ? '<span class="text-xs text-gray-500 mt-2 uppercase tracking-widest">(Nivell Expert)</span>' : ''}
                         </div>
                         ` : ''}
                     </div>
