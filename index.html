@@ -303,6 +303,7 @@
         let countdownInterval = null;
         let rapidColorInterval = null;
         let iframeFocusInterval = null; // NOU: Per detectar clic a l'iframe
+        let hasWheelSpun = false; // NOU: Flag per controlar si la ruleta ja ha girat per a la cançó actual
         const DEFAULT_BODY_BG = '#111827'; 
         const DEFAULT_CARD_BG = '#1f2937'; 
         const DEFAULT_PLAYER_BG = '#374151'; 
@@ -855,6 +856,9 @@
         }
 
         function loadTrackAndPlayer() {
+            // CORRECCIÓ: Resetegem el flag de la ruleta per a la nova cançó
+            hasWheelSpun = false;
+
             playerContainer.innerHTML = `<p class="text-gray-400 text-center p-4">Carregant reproductor...</p>`;
 
             const randomIndex = Math.floor(Math.random() * availableTracks.length);
@@ -890,8 +894,11 @@
                 nouHitButton.classList.add('hidden');
                 mostrarInfoButton.classList.remove('hidden');
                 
-                // NOU: Iniciar monitorització del clic
-                startIframeFocusMonitor();
+                // CORRECCIÓ: Només iniciem el monitor si la ruleta encara NO ha girat.
+                // Això evita que es torni a activar quan es recarrega l'iframe (stopMusic)
+                if (!hasWheelSpun) {
+                    startIframeFocusMonitor();
+                }
             };
             
             iframe.onerror = () => {
@@ -907,6 +914,9 @@
         }
 
         function renderAndSpinWheel() {
+            // CORRECCIÓ: Marquem que la ruleta ja ha girat
+            hasWheelSpun = true;
+
             const tasksToUse = currentLevel === 'expert' ? bingoTasksExpert : bingoTasksNovell;
             const taskIndex = Math.floor(Math.random() * tasksToUse.length);
             currentBingoResult = tasksToUse[taskIndex];
