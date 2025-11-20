@@ -169,7 +169,8 @@
             </div>
             
             <!-- TÍTOL CENTRAL (Flex-grow 0 per no expandir-se) -->
-            <h1 class="text-2xl sm:text-3xl font-bold text-green-400 flex-shrink-0">Hitster Music Bingo</h1>
+            <!-- AFEGIT: id per poder canviar el color i text-white per defecte -->
+            <h1 id="app-title" class="text-2xl sm:text-3xl font-bold text-white flex-shrink-0 transition-colors duration-300">Hitster Music Bingo</h1>
             
             <!-- CONTENIDOR DE BOTONS DRETA (Per centrar el títol) -->
             <div class="flex-grow flex justify-end items-center">
@@ -192,19 +193,22 @@
             <div id="game-controls" class="max-w-[400px] mx-auto">
                 
                 <!-- CONTENIDOR FIX: Fixat a h-[160px] i w-full (de max-w-[400px]) -->
+                <!-- MODIFICAT: bg-gray-800 (abans bg-gray-900) -->
                 <div id="spotify-player-container" 
-                    class="relative rounded-lg overflow-hidden flex items-center justify-center bg-gray-700 w-full h-[160px] transition-colors duration-300">
+                    class="relative rounded-lg overflow-hidden flex items-center justify-center bg-gray-800 w-full h-[160px] transition-colors duration-300">
                     <!-- Reproductor o missatge d'estat -->
                 </div>
 
                 <!-- CONTENIDOR DE BOTONS PRINCIPALS -->
                 <div class="relative min-h-[44px] mt-6">
+                    <!-- MODIFICAT: Color per defecte gris clar (bg-gray-300) -->
                     <button id="nou-hit-button" 
-                        class="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed">
+                        class="w-full bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed">
                         Nou Hit
                     </button>
+                    <!-- MODIFICAT: Color per defecte gris clar (bg-gray-300) -->
                     <button id="mostrar-info-button" 
-                        class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out absolute inset-0 hidden">
+                        class="w-full bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition duration-300 ease-in-out absolute inset-0 hidden">
                         Mostrar informació
                     </button>
                 </div>
@@ -259,6 +263,7 @@
         const fileInput = document.getElementById('file-input');
         const fileList = document.getElementById('file-list');
         const uploadSection = document.getElementById('upload-section'); 
+        const appTitle = document.getElementById('app-title'); // NOU
         // REFERÈNCIES PER A RESPONSIVE
         const mainCard = document.getElementById('main-card');
         const toggleOrientationBtn = document.getElementById('toggle-orientation-btn');
@@ -302,11 +307,12 @@
         // --- Variables per al compte enrere i control ---
         let countdownInterval = null;
         let rapidColorInterval = null;
-        let iframeFocusInterval = null; // NOU: Per detectar clic a l'iframe
-        let hasWheelSpun = false; // NOU: Flag per controlar si la ruleta ja ha girat per a la cançó actual
+        let iframeFocusInterval = null; 
+        let hasWheelSpun = false; 
         const DEFAULT_BODY_BG = '#111827'; 
         const DEFAULT_CARD_BG = '#1f2937'; 
-        const DEFAULT_PLAYER_BG = '#374151'; 
+        // MODIFICAT: Player bg per defecte a gray-800 (#1f2937)
+        const DEFAULT_PLAYER_BG = '#1f2937'; 
 
         // --- AUDIO CONTEXT ---
         let audioCtx = null;
@@ -406,7 +412,9 @@
             errorTimeout = setTimeout(() => {
                 nouHitButton.textContent = 'Nou Hit';
                 nouHitButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'text-white');
-                nouHitButton.classList.add('bg-green-500', 'hover:bg-green-600', 'text-gray-900');
+                if (!nouHitButton.style.backgroundColor) {
+                     nouHitButton.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-900');
+                }
                 
                 if (!categoriesLocked) {
                     if (spotifyAccountType) {
@@ -759,9 +767,44 @@
         }
         
         function setGlobalColor(color) {
+            const isDefault = (color === DEFAULT_BODY_BG);
+
+            // 1. Body (Fons General)
             document.body.style.backgroundColor = color;
-            document.getElementById('main-card').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_CARD_BG : color;
-            document.getElementById('spotify-player-container').style.backgroundColor = color === DEFAULT_BODY_BG ? DEFAULT_PLAYER_BG : color;
+            
+            // 2. Main Card (Àrea Informació/Ruleta) - Sempre Base (reset a buit per usar classe CSS)
+            document.getElementById('main-card').style.backgroundColor = '';
+            
+            // 3. Player Container (Àrea Reproductor) - Canvia color
+            const player = document.getElementById('spotify-player-container');
+            if (player) {
+                 player.style.backgroundColor = isDefault ? '' : color;
+            }
+            
+            // 4. Mask (Tapa Reproductor) - Canvia color
+            const mask = document.getElementById('player-mask');
+            if (mask) {
+                mask.style.backgroundColor = isDefault ? '' : color;
+            }
+            
+            // 5. Buttons (Nou Hit / Mostrar Informació)
+            const btns = [nouHitButton, mostrarInfoButton];
+            btns.forEach(btn => {
+                if (btn) {
+                    if (isDefault) {
+                        btn.style.backgroundColor = '';
+                        btn.style.color = '';
+                    } else {
+                        btn.style.backgroundColor = color;
+                        btn.style.color = '#111827'; // Text fosc
+                    }
+                }
+            });
+
+            // 6. App Title Color
+            if (appTitle) {
+                appTitle.style.color = isDefault ? '' : color;
+            }
         }
 
         // --- MODIFICAT: Aturar música recarregant l'iframe (sense eliminar-lo) ---
@@ -785,7 +828,7 @@
             rapidColorInterval = null;
             iframeFocusInterval = null;
             
-            setGlobalColor(DEFAULT_BODY_BG);
+            // IMPORTANT: No resetegem el color aquí. El color ha de persistir.
         }
 
         function startCountdown() {
@@ -819,7 +862,20 @@
                     // FINAL
                     playBeep(1.0, 440, 'square'); 
                     stopMusic(); // ATURAR MÚSICA (ARA RECARREGA)
-                    stopCountdown(); 
+                    
+                    // Aturar el compte enrere i l'interval disco
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    if (rapidColorInterval) clearInterval(rapidColorInterval);
+                    if (iframeFocusInterval) clearInterval(iframeFocusInterval);
+                    countdownInterval = null;
+                    rapidColorInterval = null;
+                    iframeFocusInterval = null;
+                    
+                    // IMPORTANT: En acabar el temps, deixem el color de la categoria, NO resetegem al fosc.
+                    // Però hem de treure l'efecte disco i tornar al color fix de la categoria actual
+                    if (currentBingoResult) {
+                        setGlobalColor(currentBingoResult.color);
+                    }
                 }
             }, 1000);
         }
@@ -844,7 +900,10 @@
         }
 
         function resetGame() {
-            stopCountdown(); 
+            stopCountdown();
+            // Força el reset del color al base només aquí o a nou hit
+            setGlobalColor(DEFAULT_BODY_BG);
+            
             categoriesLocked = false;
             availableTracks = [];
             currentTrack = null;
@@ -892,7 +951,8 @@
             
             iframe.onload = () => {
                 nouHitButton.classList.add('hidden');
-                mostrarInfoButton.classList.remove('hidden');
+                // CORRECCIÓ: No mostrar botó info immediatament
+                // mostrarInfoButton.classList.remove('hidden'); 
                 
                 // CORRECCIÓ: Només iniciem el monitor si la ruleta encara NO ha girat.
                 // Això evita que es torni a activar quan es recarrega l'iframe (stopMusic)
@@ -962,6 +1022,12 @@
                         countdownDisplay.style.textShadow = "0 0 10px rgba(0,0,0,0.9)";
                     }
                     
+                    // *** NOU: CANVIAR FONS AL COLOR DE LA CATEGORIA ***
+                    setGlobalColor(currentBingoResult.color);
+                    
+                    // *** NOU: MOSTRAR BOTÓ INFORMACIÓ ***
+                    mostrarInfoButton.classList.remove('hidden');
+
                     startCountdown();
 
                 }, 3000); 
@@ -971,6 +1037,9 @@
         function handleNouHitClick() {
             if (nouHitButton.disabled) return;
             initAudio(); 
+            
+            // *** NOU: ASSEGURAR QUE TORNEM AL COLOR BASE ***
+            setGlobalColor(DEFAULT_BODY_BG);
 
             if (!categoriesLocked) {
                 selectedCategoriesOnLoad = Array.from(document.querySelectorAll('input[name="category"]:checked')).map(input => input.value);
@@ -1005,6 +1074,8 @@
 
             } else {
                 stopCountdown();
+                // Reset color base també en nous hits successius
+                setGlobalColor(DEFAULT_BODY_BG);
 
                 if (availableTracks.length === 0) {
                     nouHitButton.disabled = true;
@@ -1031,6 +1102,10 @@
         
         function handleMostrarInfoClick() {
             stopCountdown(); 
+            // En mostrar info, NO resetegem el color. 
+            if (currentBingoResult) {
+                setGlobalColor(currentBingoResult.color);
+            }
 
             if (!currentTrack) {
                 showButtonError("No hi ha cançó seleccionada.");
@@ -1038,7 +1113,16 @@
             }
             
             const mask = document.getElementById('player-mask');
-            if (mask) mask.remove();
+            // *** CORRECCIÓ REVERTIDA: ELIMINAR COMPLETAMENT LA MÀSCARA ***
+            if (mask) {
+                mask.remove();
+            }
+            
+            // *** FIX: RESETEJAR EL FONS DEL CONTENIDOR DEL REPRODUCTOR A FOSC ***
+            const player = document.getElementById('spotify-player-container');
+            if (player) {
+                player.style.backgroundColor = DEFAULT_PLAYER_BG;
+            }
             
             dynamicContentContainer.classList.add('opacity-0', 'scale-95');
             categoryContainer.classList.add('opacity-0', 'scale-95');
@@ -1054,15 +1138,47 @@
                 dynamicContentContainer.classList.remove('opacity-0', 'scale-95');
                 categoryContainer.classList.remove('opacity-0', 'scale-95');
                 
+                // --- NOVA LÒGICA PER DESTACAR LA INFORMACIÓ SEGONS LA CATEGORIA DEL BINGO ---
+                const label = currentBingoResult ? currentBingoResult.label : '';
+                // CONSTANT PER L'ESTIL "NO DESTACAT" UNIFICAT
+                // Text-sm, gris clar (text-gray-400)
+                const dimmedStyle = "text-sm font-bold text-gray-400 mt-1 mb-1";
+
+                let titleClass = "";
+                let artistClass = "";
+                let yearClass = "";
+
+                if (label === "Títol de la cançó") {
+                    // CAS TÍTOL: Títol gran/verd
+                    titleClass = "text-4xl font-extrabold text-green-400 leading-tight mb-2";
+                    artistClass = dimmedStyle;
+                    yearClass = dimmedStyle;
+                } else if (label === "Grup o solista" || label === "Nom del grup o solista") {
+                    // CAS ARTISTA: Artista gran/color categoria
+                    titleClass = dimmedStyle;
+                    const artistColor = currentBingoResult ? currentBingoResult.textColorClass : 'text-white';
+                    artistClass = `text-4xl font-extrabold ${artistColor} mt-1 mb-4 leading-tight`;
+                    yearClass = dimmedStyle;
+                } else {
+                    // CAS ANY: Any gran/color categoria
+                    titleClass = dimmedStyle;
+                    artistClass = dimmedStyle;
+                    const yearColor = currentBingoResult ? currentBingoResult.textColorClass : 'text-green-400';
+                    yearClass = `text-6xl font-extrabold ${yearColor} mb-2`;
+                }
+
                 dynamicContentContainer.innerHTML = `
                     <div class="py-4">
-                        <p class="text-lg font-semibold">${currentTrack.title}</p>
-                        <p class="font-bold text-sm text-gray-400 mt-1">${currentTrack.artist}</p>
-                        <div class="h-4"></div>
-                        <p class="text-6xl font-extrabold text-green-400 mb-2">${currentTrack.year}</p>
+                        <p class="${titleClass}">${currentTrack.title}</p>
+                        <p class="${artistClass}">${currentTrack.artist}</p>
+                        <!-- MODIFICAT: Espai eliminat o molt petit -->
+                        <!-- <div class="h-4"></div> ELIMINAT -->
+                        
+                        <!-- MODIFICAT: Marge top augmentat per al contenidor de categoria (any o categoria) -->
+                        <p class="${yearClass}">${currentTrack.year}</p>
                         
                         ${currentBingoResult ? `
-                        <div class="mt-2 flex flex-col items-center justify-center">
+                        <div class="mt-6 flex flex-col items-center justify-center"> <!-- MT-6 AUMENTAT -->
                             <div class="flex items-center justify-center space-x-2">
                                 <span class="text-2xl">🎲</span>
                                 <p class="text-xl font-bold ${currentBingoResult.textColorClass} uppercase tracking-wide text-center leading-tight">
