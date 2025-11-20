@@ -192,8 +192,8 @@
             -->
             <div id="game-controls" class="max-w-[400px] mx-auto">
                 
-                <!-- CONTENIDOR FIX: Fixat a h-[160px] i w-full (de max-w-[400px]) -->
-                <!-- MODIFICAT: bg-gray-800 (abans bg-gray-900) -->
+                <!-- CONTENIDOR FIX DEL REPRODUCTOR -->
+                <!-- BG base gray-800 -->
                 <div id="spotify-player-container" 
                     class="relative rounded-lg overflow-hidden flex items-center justify-center bg-gray-800 w-full h-[160px] transition-colors duration-300">
                     <!-- Reproductor o missatge d'estat -->
@@ -977,7 +977,7 @@
             iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
             iframe.loading = 'lazy';
             iframe.title = " "; 
-            
+
             const mask = document.createElement('div');
             mask.id = 'player-mask';
             mask.className = 'absolute inset-0 bg-gray-800 rounded-lg transition-opacity duration-500';
@@ -988,6 +988,9 @@
 
             playerContainer.innerHTML = '';
             playerContainer.appendChild(iframe);
+            
+            // ELIMINAT: Bloquejadors de text
+            
             playerContainer.appendChild(mask);
             
             iframe.onload = () => {
@@ -1201,10 +1204,11 @@
                         extraInfoHTML = `<p class="text-4xl font-black ${currentBingoResult.textColorClass} mt-2">${isBefore}</p>`;
                     } else if (label === "Dècada") {
                         const decade = calculateDecadeText(trackYear);
-                        extraInfoHTML = `<p class="text-lg font-bold text-white mt-1">Dècada: <span class="text-yellow-300">${decade}</span></p>`;
+                        // MODIFICAT: Eliminat "Dècada:", majúscules i color de la categoria
+                        extraInfoHTML = `<p class="text-xl font-black ${currentBingoResult.textColorClass} mt-1 uppercase">${decade}</p>`;
                     } else if (label.includes("anys amunt o avall")) {
                         const rangeText = calculateRangeText(trackYear, label);
-                        extraInfoHTML = `<p class="text-sm font-bold text-white mt-1">Rang: <span class="text-yellow-300">${rangeText}</span></p>`;
+                        extraInfoHTML = `<p class="text-xl font-bold ${currentBingoResult.textColorClass} mt-1">${rangeText}</p>`;
                     }
                 }
 
